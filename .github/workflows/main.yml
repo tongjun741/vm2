@@ -1,0 +1,60 @@
+name: generate-certificates
+
+on: [push]
+
+jobs:
+  generate-certs:
+    runs-on: macos-latest
+
+    steps:
+      # step 1: checkout repository
+      - name: checkout repository
+        uses: actions/checkout@v4
+
+      # step 2: decode p12 certificate
+      - name: decode p12 certificate
+        run: |
+          echo "${{ secrets.P12_BASE64 }}" | base64 --decode > Certificates.p12
+          echo "decoded p12 certificate ✅"
+
+      # step 3: decode provisioning profile
+      - name: decode provisioning profile
+        run: |
+          echo "${{ secrets.MOBILEPROVISION_BASE64 }}" | base64 --decode > mobileprovision.mobileprovision
+          echo "decoded provisioning profile ✅"
+
+      # step 4: decode export options plist
+      - name: decode export options plist
+        run: |
+          echo "${{ secrets.EXPORT_OPTIONS_BASE64 }}" | base64 --decode > ExportOptions.plist
+          echo "decoded export options plist ✅"
+
+      # step 5: re-encode files to base64
+      - name: re-encode files to base64
+        run: |
+          base64 -i Certificates.p12 > cert_base64.txt
+          base64 -i mobileprovision.mobileprovision > mobile_pp_base64.txt
+          base64 -i ExportOptions.plist > export_opts_base64.txt
+
+          echo "re-encoded files to base64 ✅"
+
+      # step 6: package files into a zip
+      - name: package all files into zip
+        run: |
+          mkdir certs_output
+          cp Certificates.p12 certs_output/
+          cp mobileprovision.mobileprovision certs_output/
+          cp ExportOptions.plist certs_output/
+          cp cert_base64.txt certs_output/
+          cp mobile_pp_base64.txt certs_output/
+          cp export_opts_base64.txt certs_output/
+
+          zip -r certificates_bundle.zip certs_output
+          echo "packaged all files into certificates_bundle.zip ✅"
+
+      # step 7: upload zip artifact
+      - name: upload certificates bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: certificates-bundle
+          path: certificates_bundle.zip
